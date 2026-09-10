@@ -1,3 +1,5 @@
+<div align="center">
+
 # Strict Check
 
 **Stop re-reading your own diff. Make a compiler say it is wrong.**
@@ -5,13 +7,23 @@
 A DeepSeek Harness host plugin that adds one tool, `strict_check`, which verifies
 code and commands with real checkers instead of with another opinion.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-3DA639.svg)](LICENSE)
+[![DeepSeek Harness plugin](https://img.shields.io/badge/DeepSeek%20Harness-tool%20plugin-4D6BFE.svg)](#install)
+[![version](https://img.shields.io/github/package-json/v/catsenior507/dsh-tool-strict-check?color=4D6BFE)](package.json)
+[![node](https://img.shields.io/badge/node-%3E%3D20-3DA639.svg)](package.json)
+[![stars](https://img.shields.io/github/stars/catsenior507/dsh-tool-strict-check?color=4D6BFE)](https://github.com/catsenior507/dsh-tool-strict-check/stargazers)
+
+[English](README.md) · [简体中文](README.zh.md)
+
+</div>
+
 ---
 
 ## The problem
 
-An agent that is confidently wrong does not fix itself by looking again. The
-model wrote the change, so it agrees with the change. Reading the diff a second
-time produces the same answer with more words.
+An agent that is confidently wrong does not fix itself by looking again. The model
+wrote the change, so it agrees with the change. Reading the diff a second time
+produces the same answer with more words.
 
 The failures that actually cost turns are also the ones that are *mechanically
 decidable*: a file that no longer parses, a shell construct the harness shell
@@ -31,13 +43,13 @@ One tool, four actions, cheapest first.
 
 ### The Lean tier is the strict one
 
-A Lean check is worth having only because it can say **no**. Two things make
-that true here, and both are the opposite of the obvious implementation:
+A Lean check is worth having only because it can say **no**. Two things make that
+true here, and both are the opposite of the obvious implementation:
 
 **A `sorry` must fail the check.** `lean file.lean` exits **0** on a file full of
 `sorry`, because an unfinished proof is a *warning* in Lean. A checker that ran
 Lean and read the exit code would report a vacuous theorem as verified. So the
-run is:
+exact run is:
 
 ```text
 lean --json -DwarningAsError=true -DmaxErrors=0 -DautoImplicit=false -E hasSorry spec.lean
@@ -66,47 +78,63 @@ never returned as a pass. If `tsc` is missing, the result says so with the path 
 looked for; if the resolved `lean` is the elan shim with no configured default
 toolchain, the result says that too instead of reporting a compiler error.
 
+<a id="install"></a>
 ## Install
 
-```powershell
-# 1. Lean, via elan (installs to %USERPROFILE%\.elan)
-#    Reference the real toolchain binary, not the shim, or run `elan default` once.
+The plugin is installed as a package into a dsh **profile**. `dsh plugin` forwards
+to `pnpm` inside the profile directory, so any spec pnpm accepts works.
+
+```bash
+# from GitHub (the published form)
+dsh plugin --profile web add github:catsenior507/dsh-tool-strict-check
+
+# a local checkout, while developing
+dsh plugin --profile web add /absolute/path/to/dsh-tool-strict-check
+```
+
+`web` is the shipped GUI profile; substitute `headless`, `sdk`, `acp`, or your own
+profile name. On Windows, use forward slashes in a path.
+
+Then **restart the host** and confirm with:
+
+```
+strict_check action=status
+```
+
+### Lean is optional, and here is how to add it
+
+The other three tiers work without Lean. `status` reports Lean as `missing`, and
+the `lean` action returns `unavailable` — never a pass.
+
+```bash
+# 1. elan, the Lean version manager
+#    Windows (the installer writes to %USERPROFILE%\.elan):
 Invoke-WebRequest https://elan.lean-lang.org/elan-init.ps1 -OutFile "$env:TEMP\elan-init.ps1"
 & "$env:TEMP\elan-init.ps1" -NoPrompt 1 -DefaultToolchain none
+
+# 2. the toolchain. 4.33.1 is the *minimum*, not a suggestion: see above.
 & "$env:USERPROFILE\.elan\bin\elan.exe" toolchain install leanprover/lean4:v4.33.1
-
-# 2. The plugin
-dsh plugin --profile web add D:/deepseek_harness/dsh-tool-strict-check
 ```
 
-Then restart the host so the profile recomposes. Verify with
-`strict_check action=status`, which should report Lean `4.33.1` and list the
-language compilers it could and could not find.
+The plugin finds Lean without any configuration: it looks for a real compiler
+under `<ELAN_HOME>/toolchains/*/bin` first and only then falls back to `PATH`. It
+does this deliberately — the elan **shim** on `PATH` refuses to run until
+`elan default` has been executed once, and that refusal is easy to misread as
+"Lean is broken". To pin a specific toolchain, set `leanPath` in the plugin row.
 
-> **Behind a proxy?** elan downloads through curl. If the toolchain download
-> stalls at 0 bytes while a browser works, the machine has a system proxy elan is
-> not using. Write `%USERPROFILE%\.curlrc` with
-> `proxy = "http://127.0.0.1:<port>"` and retry.
+> **Behind a proxy?** elan downloads through `curl`, which reads
+> `~/.curlrc`. If the toolchain download stalls at 0 bytes while a browser works,
+> write `proxy = "http://127.0.0.1:<port>"` into `%USERPROFILE%\.curlrc` and retry.
 
-## Configure
+### What install does *not* do
 
-All fields are optional; the row in `cordis.patch.yml` names only the plugin.
+- **No build step** — the published JavaScript is the source; no `prepare` script
+  runs, no bundler is needed.
+- **No dependencies** — `dependencies` and `peerDependencies` are empty. Cordis is
+  provided by the host at runtime.
+- **No mathlib** — see below for what that costs.
 
-```yaml
-- insert:
-    - id: tool-strict-check
-      name: '@dsh-external/dsh-tool-strict-check'
-      config:
-        leanPath: 'C:\Users\me\.elan\toolchains\leanprover--lean4---v4.33.1\bin\lean.exe'
-        projectDir: 'D:\work\my-lake-project'
-        timeoutMs: 120000
-```
-
-`leanPath` wins over discovery, which is what pins one toolchain. Discovery
-otherwise prefers a real toolchain under `<ELAN_HOME>/toolchains/` and only then
-falls back to PATH — deliberately, because the elan *shim* on PATH refuses to run
-until `elan default` has been executed, and that refusal is easy to misread as
-"Lean is broken".
+Node.js 20 or newer.
 
 ## What it does **not** do
 
@@ -114,7 +142,7 @@ Stated plainly, because a verification tool that oversells itself is worse than
 none:
 
 - **No mathlib.** Core `Init` and `Std` ship with the toolchain, so `import Std`
-  and `by decide` work with no project, no network, and no 10 GB download. What
+  and `by decide` work with no project, no network, and no ~10 GB download. What
   you lose is the tactic library: no `ring`, `norm_num`, `push_neg`, `field_simp`.
   Substitutes are `grind`, `decide`, `by_cases`, `simp`, `omega`.
 - **No sandboxed re-check.** `lake check`, `comparator`, and `nanoda` need Linux
@@ -127,9 +155,26 @@ none:
   and this tool will not pretend otherwise — which is exactly why the `commands`
   action prints "a clean scan is weak evidence" rather than "OK".
 
+## Configure
+
+`dsh plugin add` already inserted the plugin row. To change the defaults, edit
+that row's `config` in the profile's `cordis.patch.yml`:
+
+```yaml
+- insert:
+    - id: tool-strict-check
+      name: '@dsh-external/dsh-tool-strict-check'
+      config:
+        leanPath: '<ELAN_HOME>/toolchains/<toolchain>/bin/lean.exe'
+        projectDir: '<path to a Lake project, if your specs import one>'
+        timeoutMs: 120000
+```
+
+`leanPath` wins over discovery, which is what pins one toolchain.
+
 ## Development
 
-```powershell
+```bash
 npm test        # 61 tests; the Lean ones execute the real compiler
 ```
 
@@ -146,6 +191,7 @@ are 0-based and are converted to 1-based.
 | `lib/language.js` | Tier 0: the language's own compiler |
 | `lib/lean.js` | The strict tier: flags, version floor, verdict |
 | `lib/tool.js` | The `strict_check` tool |
+| `lib/policy-surface.js` | The contract `dsh-policy-strict-gate` consumes |
 
 ## License
 
