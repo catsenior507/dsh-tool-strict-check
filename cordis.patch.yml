@@ -1,0 +1,21 @@
+# dsh-tool-strict-check bundle patch.
+#
+# Inserts the host half: a `strict_check` tool that verifies code and commands
+# with real checkers instead of reading them. No browser half, so this row is
+# harmless in every profile.
+#
+# Install with: dsh plugin --profile <name> add D:/deepseek_harness/dsh-tool-strict-check
+#
+# Config (all optional):
+#   leanPath     - explicit `lean` executable; wins over PATH and elan discovery
+#   lakePath     - explicit `lake`
+#   elanPath     - explicit `elan`
+#   projectDir   - a Lake project to check specs inside; empty means a scratch
+#                  project is created under `workDir` and reused
+#   workDir      - scratch root for generated projects; default <DSH_HOME>/strict-check
+#   timeoutMs    - per-checker wall clock (default 120000)
+#   maxOutputChars - checker output kept per run (default 20000)
+#   exposeTool   - register the strict_check tool (default true)
+- insert:
+    - id: tool-strict-check
+      name: '@dsh-external/dsh-tool-strict-check'

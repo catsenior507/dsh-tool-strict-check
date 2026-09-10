@@ -1,0 +1,43 @@
+{
+  "name": "@dsh-external/dsh-tool-strict-check",
+  "description": "Strict check: verify code and commands against real checkers instead of reading them — Lean 4 kernel checking with an axiom audit, language type/syntax checks, and static defect rules.",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "cordis-plugin",
+    "lean4",
+    "formal-verification",
+    "strict-check",
+    "type-check",
+    "static-analysis"
+  ],
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ]
+}
